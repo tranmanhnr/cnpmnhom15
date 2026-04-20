@@ -1,4 +1,3 @@
-/* Vietnamese PhuocIT Offline Styling */
         * {
             margin: 0;
             padding: 0;
@@ -26,6 +25,7 @@
             min-height: 100vh;
             color: var(--text-primary);
             line-height: 1.6;
+            background-image: url(library-bg1.jpg);   
         }
         
         .app-container {
@@ -132,7 +132,6 @@
             font-size: 18px;
         }
         
-        /* Main Content */
         .main-content {
             flex: 1;
             margin-left: 280px;
@@ -655,6 +654,7 @@
             bottom: 0;
             background: var(--bg-gradient);
             z-index: 1000;
+            background-image: url(bgimg.jpg);   
         }
         
         .login-card {
