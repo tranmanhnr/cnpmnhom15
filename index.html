@@ -59,13 +59,14 @@
 
         <div class="login-info">
           <strong>Thông tin đăng nhập:</strong><br />
-          Tên đăng nhập: <strong>dinhmanh</strong><br />
-          Mật khẩu: <strong>dinhmanh1</strong>
+          <span style="color:#1d4ed8;">👑 Admin:</span> <strong>admin</strong> / <strong>admin123</strong><br />
+          <span style="color:#059669;">📋 Quản lý kho:</span> <strong>dinhmanh</strong> / <strong>dinhmanh1</strong><br />
+          <span style="color:#7c3aed;">👤 Nhân viên:</span> <strong>nhanvien</strong> / <strong>nv123</strong>
         </div>
       </div>
     </div>
 
-    <div class="app-container" id="appContainer">
+    <div class="app-container" id="appContainer" style="display:none;">
       <!-- menu điện thoại -->
       <button
         class="mobile-menu-toggle"
@@ -164,6 +165,14 @@
             </a>
           </div>
 
+          <div class="nav-section" id="nav-section-accounts" style="display:none;">
+            <h3>Quản trị</h3>
+            <a href="#accounts" class="nav-item" data-page="accounts" id="nav-accounts">
+              <span class="nav-item-icon">🔑</span>
+              Quản lý tài khoản
+            </a>
+          </div>
+
           <div class="nav-section">
             <h3>Hệ thống</h3>
             <a href="#settings" class="nav-item" data-page="settings">
@@ -189,6 +198,29 @@
           </div>
 
           <div style="display: flex; gap: 12px; align-items: center">
+            <div id="user-badge" style="
+              background: linear-gradient(135deg, #e0e7ff, #c7d2fe);
+              border: 1px solid #818cf8;
+              border-radius: 20px;
+              padding: 6px 14px;
+              font-size: 13px;
+              font-weight: 600;
+              color: #3730a3;
+              display: flex;
+              align-items: center;
+              gap: 6px;
+            ">
+              <span id="user-badge-icon">👤</span>
+              <span id="user-badge-name">Người dùng</span>
+              <span id="user-badge-role" style="
+                background: #818cf8;
+                color: white;
+                border-radius: 10px;
+                padding: 1px 8px;
+                font-size: 11px;
+              ">---</span>
+            </div>
+
             <div
               class="demo-badge"
               onclick="app.showCompanyInfo()"
@@ -206,6 +238,7 @@
                   alert('App chưa sẵn sàng');
                 }
               "
+              id="header-orders-btn"
               style="
                 background: var(--primary-blue);
                 color: white;
@@ -440,7 +473,7 @@
 
           this.setupNavigation();
           this.setupEventListeners();
-          this.loadPage("dashboard");
+          // NOTE: applyRoleUI and loadPage are called by the login handler after init()
 
           // Khởi tạo filter state cho báo cáo
           this.initFilterState();
@@ -1038,6 +1071,22 @@
 
         loadPage(pageName) {
           console.log("📄 Loading page:", pageName);
+
+          // Phân quyền: kiểm tra quyền truy cập trang
+          const user = window.currentUser;
+          if (user) {
+            const rules = {
+              admin:     ['dashboard', 'reports', 'accounts', 'company-info', 'settings'],
+              warehouse: ['dashboard', 'customers', 'suppliers', 'products', 'categories', 'inventory', 'debts', 'orders', 'reports', 'settings', 'company-info'],
+              employee:  ['dashboard', 'orders', 'inventory'],
+            };
+            const allowed = rules[user.role] || rules['employee'];
+            if (!allowed.includes(pageName)) {
+              this.showNotification('Bạn không có quyền truy cập trang này!', 'error');
+              return;
+            }
+          }
+
           this.currentPage = pageName;
 
           // FORCE reload toàn bộ dữ liệu từ localStorage
@@ -1137,6 +1186,8 @@
               return this.getSettingsContent();
             case "company-info":
               return this.getCompanyInfoContent();
+            case "accounts":
+              return this.getAccountsContent();
             default:
               return this.getDashboardContent();
           }
@@ -2549,6 +2600,185 @@
                         </div>
                     </div>
                 `;
+        }
+
+        getAccountsContent() {
+          const currentUser = window.currentUser;
+          if (!currentUser || currentUser.role !== 'admin') {
+            return '<div class="fade-in"><div class="quick-actions" style="text-align:center;padding:60px 20px;">'
+              + '<div style="font-size:64px;margin-bottom:16px;">🚫</div>'
+              + '<h2 style="color:#dc2626;">Không có quyền truy cập</h2>'
+              + '<p style="color:#6b7280;">Chỉ Admin mới được quản lý tài khoản.</p>'
+              + '</div></div>';
+          }
+
+          const accounts = this.getAccountsList();
+          let rows = '';
+          accounts.forEach(function(acc, i) {
+            let roleLabel;
+            if (acc.role === 'admin') {
+              roleLabel = '<span style="background:#dbeafe;color:#1d4ed8;border-radius:10px;padding:2px 10px;font-size:12px;font-weight:600;">👑 Admin</span>';
+            } else if (acc.role === 'warehouse') {
+              roleLabel = '<span style="background:#d1fae5;color:#065f46;border-radius:10px;padding:2px 10px;font-size:12px;font-weight:600;">📋 Quản lý kho</span>';
+            } else {
+              roleLabel = '<span style="background:#ede9fe;color:#5b21b6;border-radius:10px;padding:2px 10px;font-size:12px;font-weight:600;">👤 Nhân viên</span>';
+            }
+            let actionBtn;
+            if (acc.username === 'dinhmanh') {
+              actionBtn = '<span style="color:#9ca3af;font-size:12px;font-style:italic;">Tài khoản gốc</span>';
+            } else {
+              actionBtn = '<button onclick="window.app.deleteAccount(\'' + acc.username + '\')" style="background:#fee2e2;color:#dc2626;border:none;padding:4px 12px;border-radius:6px;cursor:pointer;font-size:13px;">🗑 Xóa</button>'
+                + ' <button onclick="window.app.showEditAccountModal(\'' + acc.username + '\')" style="background:#dbeafe;color:#1d4ed8;border:none;padding:4px 12px;border-radius:6px;cursor:pointer;font-size:13px;">✏️ Sửa</button>';
+            }
+            rows += '<tr style="border-bottom:1px solid #f1f5f9;">'
+              + '<td style="padding:12px 16px;">' + (i+1) + '</td>'
+              + '<td style="padding:12px 16px;font-weight:600;">' + acc.username + '</td>'
+              + '<td style="padding:12px 16px;">' + (acc.fullname || '—') + '</td>'
+              + '<td style="padding:12px 16px;">' + roleLabel + '</td>'
+              + '<td style="padding:12px 16px;">' + actionBtn + '</td>'
+              + '</tr>';
+          });
+
+          return '<div class="fade-in">'
+            + '<div class="quick-actions" style="margin-bottom:24px;">'
+            + '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">'
+            + '<h2 class="section-title">🔑 Quản lý tài khoản</h2>'
+            + '<button onclick="window.app.showAddAccountModal()" style="background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;">➕ Thêm tài khoản</button>'
+            + '</div>'
+            + '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:16px;margin-top:16px;">'
+            + '<h3 style="margin:0 0 12px 0;font-size:14px;color:#475569;">📋 Bảng phân quyền</h3>'
+            + '<table style="width:100%;border-collapse:collapse;font-size:13px;">'
+            + '<thead><tr style="background:#e2e8f0;">'
+            + '<th style="padding:8px 12px;text-align:left;">Chức năng</th>'
+            + '<th style="padding:8px 12px;text-align:center;color:#1d4ed8;">👑 Admin</th>'
+            + '<th style="padding:8px 12px;text-align:center;color:#065f46;">📋 Quản lý kho</th>'
+            + '<th style="padding:8px 12px;text-align:center;color:#5b21b6;">👤 Nhân viên</th>'
+            + '</tr></thead>'
+            + '<tbody>'
+            + '<tr style="border-bottom:1px solid #f1f5f9;"><td style="padding:8px 12px;">Quản lý tài khoản</td><td style="text-align:center;color:#16a34a;">✅</td><td style="text-align:center;color:#dc2626;">❌</td><td style="text-align:center;color:#dc2626;">❌</td></tr>'
+            + '<tr style="border-bottom:1px solid #f1f5f9;"><td style="padding:8px 12px;">Quản lý sản phẩm</td><td style="text-align:center;color:#dc2626;">❌</td><td style="text-align:center;color:#16a34a;">✅</td><td style="text-align:center;color:#dc2626;">❌</td></tr>'
+            + '<tr style="border-bottom:1px solid #f1f5f9;"><td style="padding:8px 12px;">Nhập / Xuất kho</td><td style="text-align:center;color:#dc2626;">❌</td><td style="text-align:center;color:#16a34a;">✅</td><td style="text-align:center;color:#16a34a;">✅</td></tr>'
+            + '<tr><td style="padding:8px 12px;">Xem báo cáo</td><td style="text-align:center;color:#16a34a;">✅</td><td style="text-align:center;color:#16a34a;">✅</td><td style="text-align:center;color:#dc2626;">❌</td></tr>'
+            + '</tbody></table></div></div>'
+            + '<div class="quick-actions">'
+            + '<h2 class="section-title">Danh sách tài khoản (' + accounts.length + ')</h2>'
+            + '<div style="overflow-x:auto;margin-top:16px;">'
+            + '<table style="width:100%;border-collapse:collapse;font-size:14px;">'
+            + '<thead><tr style="background:linear-gradient(135deg,#e0e7ff,#c7d2fe);color:#1e1b4b;">'
+            + '<th style="padding:12px 16px;text-align:left;">#</th>'
+            + '<th style="padding:12px 16px;text-align:left;">Tên đăng nhập</th>'
+            + '<th style="padding:12px 16px;text-align:left;">Họ tên</th>'
+            + '<th style="padding:12px 16px;text-align:left;">Vai trò</th>'
+            + '<th style="padding:12px 16px;text-align:left;">Thao tác</th>'
+            + '</tr></thead>'
+            + '<tbody>' + rows + '</tbody>'
+            + '</table></div></div></div>';
+        }
+
+        getAccountsList() {
+          // Always include the protected warehouse account
+          const base = [{ username: 'dinhmanh', password: 'dinhmanh1', fullname: 'Trần Đình Mạnh', role: 'warehouse' }];
+          const extra = JSON.parse(localStorage.getItem('extra_accounts') || '[]');
+          return [...base, ...extra];
+        }
+
+        saveExtraAccounts(list) {
+          // Never save dinhmanh in extra_accounts
+          const filtered = list.filter(a => a.username !== 'dinhmanh');
+          localStorage.setItem('extra_accounts', JSON.stringify(filtered));
+        }
+
+        deleteAccount(username) {
+          if (username === 'dinhmanh') { this.showNotification('Không thể xóa tài khoản gốc!', 'error'); return; }
+          if (!confirm('Bạn có chắc muốn xóa tài khoản "' + username + '"?')) return;
+          const list = JSON.parse(localStorage.getItem('extra_accounts') || '[]');
+          const newList = list.filter(a => a.username !== username);
+          localStorage.setItem('extra_accounts', JSON.stringify(newList));
+          this.showNotification('Đã xóa tài khoản ' + username, 'success');
+          this.loadPage('accounts');
+        }
+
+        showAddAccountModal() {
+          const modal = document.createElement('div');
+          modal.id = 'add-account-modal';
+          modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+          modal.innerHTML = '<div style="background:white;border-radius:16px;padding:32px;width:420px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,0.3);">'
+            + '<h2 style="margin:0 0 24px 0;color:#1e1b4b;">➕ Thêm tài khoản mới</h2>'
+            + '<div style="margin-bottom:16px;"><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px;">Tên đăng nhập *</label>'
+            + '<input id="new-acc-username" type="text" placeholder="Nhập tên đăng nhập" style="width:100%;padding:10px 14px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;box-sizing:border-box;" /></div>'
+            + '<div style="margin-bottom:16px;"><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px;">Họ tên</label>'
+            + '<input id="new-acc-fullname" type="text" placeholder="Nhập họ và tên" style="width:100%;padding:10px 14px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;box-sizing:border-box;" /></div>'
+            + '<div style="margin-bottom:16px;"><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px;">Mật khẩu *</label>'
+            + '<input id="new-acc-password" type="password" placeholder="Nhập mật khẩu" style="width:100%;padding:10px 14px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;box-sizing:border-box;" /></div>'
+            + '<div style="margin-bottom:24px;"><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px;">Vai trò *</label>'
+            + '<select id="new-acc-role" style="width:100%;padding:10px 14px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;box-sizing:border-box;">'
+            + '<option value="admin">👑 Admin</option><option value="employee" selected>👤 Nhân viên</option></select></div>'
+            + '<div style="display:flex;gap:12px;justify-content:flex-end;">'
+            + '<button onclick="document.getElementById(\'add-account-modal\').remove()" style="padding:10px 20px;border:1px solid #d1d5db;background:white;border-radius:8px;cursor:pointer;font-size:14px;">Hủy</button>'
+            + '<button onclick="window.app.confirmAddAccount()" style="padding:10px 20px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;">Lưu tài khoản</button>'
+            + '</div></div>';
+          document.body.appendChild(modal);
+        }
+
+        confirmAddAccount() {
+          const username = document.getElementById('new-acc-username').value.trim();
+          const fullname = document.getElementById('new-acc-fullname').value.trim();
+          const password = document.getElementById('new-acc-password').value.trim();
+          const role = document.getElementById('new-acc-role').value;
+          if (!username || !password) { this.showNotification('Vui lòng điền đầy đủ tên đăng nhập và mật khẩu!', 'error'); return; }
+          const allAccounts = this.getAccountsList();
+          if (allAccounts.find(function(a) { return a.username === username; })) {
+            this.showNotification('Tên đăng nhập đã tồn tại!', 'error'); return;
+          }
+          const list = JSON.parse(localStorage.getItem('extra_accounts') || '[]');
+          list.push({ username: username, fullname: fullname, password: password, role: role });
+          localStorage.setItem('extra_accounts', JSON.stringify(list));
+          const modal = document.getElementById('add-account-modal');
+          if (modal) modal.remove();
+          this.showNotification('Đã thêm tài khoản ' + username, 'success');
+          this.loadPage('accounts');
+        }
+
+        showEditAccountModal(username) {
+          const list = JSON.parse(localStorage.getItem('extra_accounts') || '[]');
+          const acc = list.find(function(a) { return a.username === username; });
+          if (!acc) { this.showNotification('Không tìm thấy tài khoản!', 'error'); return; }
+          const modal = document.createElement('div');
+          modal.id = 'edit-account-modal';
+          modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+          modal.innerHTML = '<div style="background:white;border-radius:16px;padding:32px;width:420px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,0.3);">'
+            + '<h2 style="margin:0 0 24px 0;color:#1e1b4b;">✏️ Sửa tài khoản: ' + username + '</h2>'
+            + '<div style="margin-bottom:16px;"><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px;">Họ tên</label>'
+            + '<input id="edit-acc-fullname" type="text" value="' + (acc.fullname||'') + '" style="width:100%;padding:10px 14px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;box-sizing:border-box;" /></div>'
+            + '<div style="margin-bottom:16px;"><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px;">Mật khẩu mới (để trống nếu không đổi)</label>'
+            + '<input id="edit-acc-password" type="password" placeholder="Nhập mật khẩu mới" style="width:100%;padding:10px 14px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;box-sizing:border-box;" /></div>'
+            + '<div style="margin-bottom:24px;"><label style="display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px;">Vai trò</label>'
+            + '<select id="edit-acc-role" style="width:100%;padding:10px 14px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;box-sizing:border-box;">'
+            + '<option value="admin"' + (acc.role==='admin'?' selected':'') + '>👑 Admin</option>'
+            + '<option value="employee"' + (acc.role==='employee'?' selected':'') + '>👤 Nhân viên</option>'
+            + '</select></div>'
+            + '<div style="display:flex;gap:12px;justify-content:flex-end;">'
+            + '<button onclick="document.getElementById(\'edit-account-modal\').remove()" style="padding:10px 20px;border:1px solid #d1d5db;background:white;border-radius:8px;cursor:pointer;font-size:14px;">Hủy</button>'
+            + '<button onclick="window.app.confirmEditAccount(\'' + username + '\')" style="padding:10px 20px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;border:none;border-radius:8px;cursor:pointer;font-size:14px;font-weight:600;">Lưu thay đổi</button>'
+            + '</div></div>';
+          document.body.appendChild(modal);
+        }
+
+        confirmEditAccount(username) {
+          const fullname = document.getElementById('edit-acc-fullname').value.trim();
+          const password = document.getElementById('edit-acc-password').value.trim();
+          const role = document.getElementById('edit-acc-role').value;
+          const list = JSON.parse(localStorage.getItem('extra_accounts') || '[]');
+          const idx = list.findIndex(function(a) { return a.username === username; });
+          if (idx === -1) { this.showNotification('Không tìm thấy tài khoản!', 'error'); return; }
+          list[idx].fullname = fullname;
+          list[idx].role = role;
+          if (password) list[idx].password = password;
+          localStorage.setItem('extra_accounts', JSON.stringify(list));
+          const modal = document.getElementById('edit-account-modal');
+          if (modal) modal.remove();
+          this.showNotification('Đã cập nhật tài khoản ' + username, 'success');
+          this.loadPage('accounts');
         }
 
         getSettingsContent() {
@@ -12460,64 +12690,115 @@
       styleSheet.textContent = notificationStyles;
       document.head.appendChild(styleSheet);
 
+      // ======= ACCOUNTS SYSTEM =======
+      // Built-in accounts (never stored in localStorage)
+      const BUILTIN_ACCOUNTS = [
+        { username: 'admin',    password: 'admin123',  fullname: 'Quản trị viên', role: 'admin' },
+        { username: 'dinhmanh', password: 'dinhmanh1', fullname: 'Trần Đình Mạnh', role: 'warehouse' },
+        { username: 'nhanvien', password: 'nv123',     fullname: 'Nhân viên',     role: 'employee' },
+      ];
+
+      function getAllAccounts() {
+        const extra = JSON.parse(localStorage.getItem('extra_accounts') || '[]');
+        return [...BUILTIN_ACCOUNTS, ...extra];
+      }
+
+      function applyRoleUI(user) {
+        // Update badge
+        const icons = { admin: '👑', warehouse: '📋', employee: '👤' };
+        const labels = { admin: 'Admin', warehouse: 'Quản lý kho', employee: 'Nhân viên' };
+        const colors = { admin: '#1d4ed8', warehouse: '#065f46', employee: '#5b21b6' };
+        const bgColors = { admin: '#dbeafe', warehouse: '#d1fae5', employee: '#ede9fe' };
+
+        const badgeEl = document.getElementById('user-badge');
+        const iconEl  = document.getElementById('user-badge-icon');
+        const nameEl  = document.getElementById('user-badge-name');
+        const roleEl  = document.getElementById('user-badge-role');
+        if (badgeEl && iconEl && nameEl && roleEl) {
+          iconEl.textContent  = icons[user.role] || '👤';
+          nameEl.textContent  = user.fullname || user.username;
+          roleEl.textContent  = labels[user.role] || user.role;
+          roleEl.style.background = colors[user.role] || '#6b7280';
+          badgeEl.style.borderColor = colors[user.role];
+          badgeEl.style.background = 'linear-gradient(135deg, ' + bgColors[user.role] + ', white)';
+          badgeEl.style.color = colors[user.role];
+        }
+
+        // Nav visibility per role
+        // Quản lý tài khoản: chỉ admin
+        const navAccSection = document.getElementById('nav-section-accounts');
+        if (navAccSection) navAccSection.style.display = user.role === 'admin' ? '' : 'none';
+
+        // Ẩn/hiện nav items theo role
+        // admin: chỉ thấy dashboard, reports, accounts, company-info
+        // warehouse: thấy tất cả trừ accounts
+        // employee: chỉ thấy dashboard, orders, inventory (nhập/xuất kho)
+        const rules = {
+          admin:     ['dashboard', 'reports', 'accounts', 'company-info', 'settings'],
+          warehouse: ['dashboard', 'customers', 'suppliers', 'products', 'categories', 'inventory', 'debts', 'orders', 'reports', 'settings', 'company-info'],
+          employee:  ['dashboard', 'orders', 'inventory'],
+        };
+        const allowed = rules[user.role] || rules['employee'];
+
+        document.querySelectorAll('.nav-item[data-page]').forEach(item => {
+          const page = item.getAttribute('data-page');
+          item.style.display = allowed.includes(page) ? '' : 'none';
+        });
+
+        // Ẩn nút "Đơn hàng" trên header nếu admin không có quyền
+        const headerOrdersBtn = document.getElementById('header-orders-btn');
+        if (headerOrdersBtn) {
+          headerOrdersBtn.style.display = allowed.includes('orders') ? '' : 'none';
+        }
+      }
+
       // Login functionality
       document
         .getElementById("loginForm")
         .addEventListener("submit", function (e) {
           e.preventDefault();
 
-          const username = document.getElementById("username").value;
+          const username = document.getElementById("username").value.trim();
           const password = document.getElementById("password").value;
           const errorMessage = document.getElementById("errorMessage");
 
-          console.log("🔐 Login attempt:", { username, password });
-          console.log("🔐 Expected: dinhmanh / dinhmanh1");
+          const accounts = getAllAccounts();
+          const found = accounts.find(a => a.username === username && a.password === password);
 
-          // Check credentials
-          if (username === "dinhmanh" && password === "dinhmanh1") {
-            // Hide login screen
+          if (found) {
+            window.currentUser = found;
+
             document.getElementById("loginScreen").style.display = "none";
-            // Show main app
             document.getElementById("appContainer").style.display = "flex";
 
-            // Initialize the application with a small delay to ensure DOM is ready
             setTimeout(() => {
-              app = new Dinhmanh();
-              window.app = app; // Make app globally accessible
-              // Force setup navigation again to ensure it works
-              setTimeout(() => {
-                if (app) {
-                  app.setupNavigation();
-                  console.log("Navigation re-setup completed");
-                  console.log("App is now available globally as window.app");
-                }
-              }, 200);
-              showNotification(
-                "Đăng nhập thành công! Chào mừng dinhmanh",
-                "success",
-              );
+              if (!app) {
+                app = new Dinhmanh();
+                window.app = app;
+              }
+              // Apply role UI and load first page
+              applyRoleUI(found);
+              const defaultPage = found.role === 'admin' ? 'reports' : found.role === 'employee' ? 'orders' : 'dashboard';
+              app.loadPage(defaultPage);
+              showNotification("Đăng nhập thành công! Chào mừng " + (found.fullname || found.username), "success");
             }, 100);
           } else {
-            // Show error message
             errorMessage.style.display = "block";
-            setTimeout(() => {
-              errorMessage.style.display = "none";
-            }, 3000);
+            setTimeout(() => { errorMessage.style.display = "none"; }, 3000);
           }
         });
 
       // Logout functionality
       function logout() {
         if (confirm("Bạn có chắc chắn muốn đăng xuất?")) {
-          // Hide main app
           document.getElementById("appContainer").style.display = "none";
-          // Show login screen
           document.getElementById("loginScreen").style.display = "flex";
-
-          // Clear form
           document.getElementById("username").value = "";
           document.getElementById("password").value = "";
-
+          window.currentUser = null;
+          // Reset app so next login re-inits cleanly
+          app = null;
+          window.app = null;
           showNotification("Đã đăng xuất thành công", "info");
         }
       }
